@@ -47,7 +47,9 @@ Return codes: keep the defaults (`0` success, `3010` soft reboot, `1` failed). A
 | Operator | Equals |
 | Value | `1` |
 
-Devices with zero or multiple NVIDIA GPUs are skipped.
+Devices with zero or multiple NVIDIA GPUs are skipped and show as **Not applicable**.
+
+> Intune evaluates the detection rule before the requirement rule, and a detected app is reported as Installed. The detection script therefore reports "not detected" on devices without exactly one NVIDIA GPU, so the requirement rule can mark them Not applicable. Without the requirement rule those devices would run the install, which fails with "No NVIDIA GPU detected."
 
 ## 5. Detection rule
 
@@ -60,7 +62,7 @@ Rules format: **Use a custom detection script**, file `Detect-NVIDIADriver.ps1`.
 
 Behavior:
 
-- Exit 0 + output: the driver is current (or the device has no single NVIDIA GPU, which is out of scope).
+- Exit 0 + output: the driver is current. This is the only "detected" case.
 - Exit 1, no output: a newer driver exists, or the lookup failed (offline, NVIDIA API change, unmatched GPU name). Intune then runs the install command. When the lookup is broken the install fails too and logs the cause, so a broken link or download mechanism stays visible. The reason is written to STDERR. Offline devices therefore report a failed install until they reconnect.
 
 ## 6. Assignment

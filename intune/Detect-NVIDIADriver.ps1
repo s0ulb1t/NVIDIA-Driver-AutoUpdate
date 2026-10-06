@@ -5,9 +5,12 @@
 .DESCRIPTION
     Detected (exit 0 + STDOUT):
       - Installed driver is equal to or newer than the latest NVIDIA driver for this GPU.
-      - No single NVIDIA GPU present (the requirement rule should already exclude these devices).
+        This is the ONLY case that reports detected.
     Not detected (exit 1, no STDOUT; the reason is written to STDERR):
       - A newer NVIDIA driver is available. Intune then runs the install command.
+      - No NVIDIA GPU, or more than one. Intune evaluates detection before requirements, so reporting
+        "detected" here would show the app as Installed on devices without an NVIDIA GPU. Reporting
+        "not detected" lets the requirement rule (Requirement-NVIDIAGPU.ps1) mark them Not applicable.
       - The local or online evaluation fails (offline, NVIDIA API change, unmatched GPU name, unexpected
         response). This is deliberately NOT treated as compliant, so a broken lookup or download
         mechanism stays visible instead of silently reporting "up to date". The install command then
@@ -49,7 +52,7 @@ try {
     $ErrorActionPreference = 'Stop'
 
     $Gpus = @(Get-CimInstance -ClassName Win32_VideoController | Where-Object { $_.PNPDeviceID -like 'PCI\VEN_10DE*' })
-    if ($Gpus.Count -ne 1) { Set-Detected "Found $($Gpus.Count) NVIDIA GPUs. Out of scope." }
+    if ($Gpus.Count -ne 1) { Set-NotDetected "Found $($Gpus.Count) NVIDIA GPUs. Out of scope; the requirement rule marks this device Not applicable." }
 
     $Gpu = $Gpus[0]
     $CurrentVersion = ConvertTo-NvidiaVersion -WindowsVersion $Gpu.DriverVersion
