@@ -1,0 +1,19 @@
+# Logs and partial downloads
+*.log
+*.log.old
+*.part
+
+# Downloaded NVIDIA driver packages and extracted files
+*.exe
+NVIDIA/
+Cache/
+
+# Intune packaging output
+*.intunewin
+
+# Editor and OS files
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
+.DS_Store
