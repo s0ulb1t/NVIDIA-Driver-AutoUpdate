@@ -16,6 +16,9 @@ Based on [jakelmg/NVIDIA-Driver-Downloader](https://github.com/jakelmg/NVIDIA-Dr
 
 - Detects the GPU by PCI vendor ID (`10DE`), not by display name.
 - Maps the Windows GPU name to NVIDIA's product list (handles "Generation" naming, keeps laptop and desktop variants apart).
+- When one GPU name matches several NVIDIA products (for example `Quadro T2000` in both the notebook and the embedded series), it compares the device form factor (SMBIOS chassis type and power profile; known signals must agree) with each candidate's NVIDIA product series. A series counts as notebook or embedded by keyword, and as desktop only by heuristic: when a sibling series with the same name plus "(Notebooks)" exists. If that does not settle it, it continues only when all candidates resolve to the same driver package; otherwise it stops.
+- A name ending in "with Max-Q Design" without an exact match is retried without that suffix, but only on a device detected as a notebook and only against notebook series.
+- Every mapping step is logged with the raw chassis and power profile values. The detection script uses the same logic.
 - Never downgrades and never reinstalls the same version.
 - Downloads with resume, retries, mirror failover and a stall timeout (suited for slow links).
 - Validates the NVIDIA Authenticode signature before running the package.
