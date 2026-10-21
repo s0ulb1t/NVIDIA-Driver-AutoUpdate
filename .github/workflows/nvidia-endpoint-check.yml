@@ -1,0 +1,60 @@
+# Weekly check that NVIDIA's lookup and download endpoints still work the way
+# Update-NVIDIADriver.ps1 expects. On failure it opens (or updates) one issue,
+# and optionally fires the Claude routine "NVIDIA endpoint storing".
+name: NVIDIA endpoint check
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"   # Monday 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install requests==2.32.3
+
+      - name: Check endpoints
+        id: check
+        run: python .github/scripts/check_nvidia_endpoints.py | tee result.md
+
+      - name: Open or update issue
+        if: failure() && steps.check.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="NVIDIA endpoint check failed"
+          body="$(printf 'The weekly endpoint check failed on %s.\n\n%s\n\nRun: %s' "$(date -u +%F)" "$(cat result.md)" "$RUN_URL")"
+          existing=$(gh api "repos/${{ github.repository }}/issues?state=open&labels=endpoint-check" --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh api "repos/${{ github.repository }}/issues/$existing/comments" -f body="$body"
+          else
+            gh label create endpoint-check --color B60205 --description "Automated NVIDIA endpoint check" 2>/dev/null || true
+            gh api "repos/${{ github.repository }}/issues" -f title="$title" -f body="$body" -f "labels[]=endpoint-check"
+          fi
+
+      - name: Fire Claude routine (optional)
+        if: failure() && steps.check.outcome == 'failure' && vars.ROUTINE_FIRE_URL != ''
+        env:
+          FIRE_URL: ${{ vars.ROUTINE_FIRE_URL }}
+          FIRE_TOKEN: ${{ secrets.ROUTINE_FIRE_TOKEN }}
+        run: |
+          jq -n --rawfile r result.md '{text: ("Endpoint check failed:\n" + $r)}' > payload.json
+          curl -sS --fail -X POST "$FIRE_URL" \
+            -H "Authorization: Bearer $FIRE_TOKEN" \
+            -H "anthropic-beta: experimental-cc-routine-2026-04-01" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "Content-Type: application/json" \
+            --data @payload.json
